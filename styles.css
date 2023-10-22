@@ -1,0 +1,8 @@
+#container {
+    display: flex;
+}
+
+canvas {
+    width: 33.33%;
+    height: auto; /* Podle potřeby upravte */
+}
