@@ -75,16 +75,53 @@ class FireworkScene {
     }
   
     initParticles() {
+      this.particles = [];
+      this.velocities = [];
       for (let i = 0; i < 100; i++) {
-        this.particles.push(0, 0, 0); // x, y, z
+        this.particles.push(0, 0, 0);  // Reset positions to the origin
+        this.velocities.push(Math.random() * 0.2 - 0.1, Math.random() * 0.2 - 0.1, Math.random() * 0.2 - 0.1);  // Reset velocities
       }
-      this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.particles), this.gl.DYNAMIC_DRAW);
+    }
+
+
+    startAnimation() {
+      const animate = () => {
+        this.updateParticles();
+        this.render();
+        if (this.isFireworkDone()) {
+          this.initParticles();
+          this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.particles), this.gl.DYNAMIC_DRAW);  // Update the buffer
+        }
+        requestAnimationFrame(animate);  // Keep the animation loop running
+      };
+      animate();
+    }
+    
+    isFireworkDone() {
+      let count = 0;
+      for (let i = 1; i < this.particles.length; i += 3) {
+        if (this.particles[i] < -1.0) count++;
+      }
+      return count > this.particles.length / 6; // adjust the threshold as needed
+    }
+    
+    updateParticles() {
+      for (let i = 0; i < this.particles.length; i += 3) {
+        // Assume particles[i], particles[i + 1], particles[i + 2] are x, y, z coordinates of a particle
+        // Assume velocities[i], velocities[i + 1], velocities[i + 2] are the corresponding velocities
+    
+        // Update position based on velocity
+        this.particles[i] += this.velocities[i];
+        this.particles[i + 1] += this.velocities[i + 1];
+        this.particles[i + 2] += this.velocities[i + 2];
+    
+        // Apply some gravity (optional)
+        this.velocities[i + 1] -= 0.01;
+      }
     }
     
   
     render() {
-      // Update particle positions here based on some logic
-      // ...
     
       // Update the buffer data
       this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.particles), this.gl.DYNAMIC_DRAW);
@@ -102,5 +139,5 @@ class FireworkScene {
   
   // Example usage:
   const fireworkScene = new FireworkScene('fireworkCanvas');
-  fireworkScene.render();
+  fireworkScene.startAnimation();
   
