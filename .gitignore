@@ -1,0 +1,11 @@
+env/
+scripts/
+__pycache__/
+*.pyc
+*.log
+*.bin.gz
+vectors.csv
+Three.js/node_modules/
+Three.js/package.json
+Three.js/package-lock.json
+Three.js/car yt.js
