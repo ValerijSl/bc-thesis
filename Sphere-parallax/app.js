@@ -76,8 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 vec3 viewDir = normalize(viewPosition - vUv);
                 
                 // Parallax mapping
-                float layerDepth = 1.0 / (parallaxMinLayers + parallaxMaxLayers);
-                float currentLayerDepth = 0.0;
+                float layerDepth = 2.0 / (parallaxMinLayers + parallaxMaxLayers);
+                float currentLayerDepth = 1.0;
                 vec2 P = viewDir.xy * parallaxScale;
                 vec2 deltaTexCoords = P / parallaxMaxLayers;
                 vec2 currentTexCoords = vUv;
