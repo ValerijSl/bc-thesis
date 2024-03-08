@@ -1,0 +1,11 @@
+Model Information:
+* title:	Dead Sea Qumran
+* source:	https://sketchfab.com/3d-models/dead-sea-qumran-bf4bd5df05134faea2c86bc85cb90a3d
+* author:	GSXNet (https://sketchfab.com/gsxn)
+
+Model License:
+* license type:	CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+* requirements:	Author must be credited. No commercial use.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Dead Sea Qumran" (https://sketchfab.com/3d-models/dead-sea-qumran-bf4bd5df05134faea2c86bc85cb90a3d) by GSXNet (https://sketchfab.com/gsxn) licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
