@@ -1,3 +1,4 @@
+
 var canvas = document.getElementById('webgl2-canvas');
 var gl2 = canvas.getContext('webgl2');
 // další kód WebGL2

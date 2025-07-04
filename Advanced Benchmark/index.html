@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Advanced WebGL Performance Benchmark for RTX 4090 and high-end hardware">
+    <meta name="keywords" content="WebGL, WebGL2, benchmark, performance, GPU, RTX 4090, 3D graphics">
+    <title>Advanced WebGL Benchmark - RTX 4090 Stress Test</title>
+    <link rel="stylesheet" href="benchmark-styles.css">
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Initializing WebGL Benchmark...</div>
+    </div>
+
+    <!-- Main Canvas Container -->
+    <div id="canvas-container">
+        <canvas id="canvas" aria-label="WebGL Benchmark Canvas"></canvas>
+        
+        <!-- FPS Display -->
+        <div id="fps-display" class="fps-display">60</div>
+        
+        <!-- Statistics Panel -->
+        <div id="stats-panel" role="complementary" aria-label="Performance Statistics">
+            <div class="stats-header">⚡ Performance Monitor</div>
+            
+            <div class="stats-section">
+                <h4>📊 Frame Rate</h4>
+                <div class="stat-row">
+                    <span class="stat-label">FPS:</span>
+                    <span class="stat-value" id="fps-stat">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Frame Time:</span>
+                    <span class="stat-value" id="frametime-stat">0ms</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">GPU Load:</span>
+                    <span class="stat-value" id="gpu-load">Low</span>
+                </div>
+                <div class="performance-bar">
+                    <div class="performance-fill" id="performance-fill" style="width: 10%"></div>
+                    <div class="performance-text" id="performance-text">WARMING UP</div>
+                </div>
+            </div>
+            
+            <div class="stats-section">
+                <h4>🎮 Render Stats</h4>
+                <div class="stat-row">
+                    <span class="stat-label">Objects:</span>
+                    <span class="stat-value" id="objects-stat">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Triangles:</span>
+                    <span class="stat-value" id="triangles-stat">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Vertices:</span>
+                    <span class="stat-value" id="vertices-stat">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Draw Calls:</span>
+                    <span class="stat-value" id="drawcalls-stat">0</span>
+                </div>
+            </div>
+            
+            <div class="stats-section">
+                <h4>💾 Memory Usage</h4>
+                <div class="stat-row">
+                    <span class="stat-label">GPU Memory:</span>
+                    <span class="stat-value" id="gpu-memory">0MB</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Textures:</span>
+                    <span class="stat-value" id="texture-memory">0MB</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Shader:</span>
+                    <span class="stat-value" id="shader-complexity">Medium</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Controls Panel -->
+        <div id="controls-panel" role="complementary" aria-label="Benchmark Controls">
+            <div class="controls-header">🎛️ RTX 4090 Controls</div>
+            
+            <div class="control-section">
+                <h4>🚀 Stress Tests</h4>
+                <div class="btn-group">
+                    <button class="btn stress-test" id="test-1k" data-count="1000">1K Objects</button>
+                    <button class="btn stress-test" id="test-10k" data-count="10000">10K Objects</button>
+                    <button class="btn stress-test" id="test-50k" data-count="50000">50K Objects</button>
+                    <button class="btn stress-test" id="test-100k" data-count="100000">100K Objects</button>
+                </div>
+                <div class="btn-group">
+                    <button class="btn stress-test" id="test-250k" data-count="250000">250K Objects</button>
+                    <button class="btn extreme" id="test-500k" data-count="500000">500K EXTREME</button>
+                </div>
+                <div class="btn-group-full">
+                    <button class="btn extreme" id="test-ultimate" data-count="1000000">🔥 ULTIMATE RTX 4090 TEST 🔥</button>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h4>🔬 Rendering Options</h4>
+                <div class="btn-group-3">
+                    <button class="btn" id="toggle-instancing">Instancing</button>
+                    <button class="btn" id="toggle-shaders">Shaders</button>
+                    <button class="btn" id="toggle-textures">HD Textures</button>
+                </div>
+                <div class="btn-group-3">
+                    <button class="btn" id="toggle-shadows">Shadows</button>
+                    <button class="btn" id="toggle-lighting">Lighting</button>
+                    <button class="btn" id="toggle-particles">Particles</button>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h4>⚙️ Quality Settings</h4>
+                <div class="form-group">
+                    <label for="shader-quality">Shader Complexity:</label>
+                    <select class="form-control" id="shader-quality">
+                        <option value="basic">Basic (Mobile)</option>
+                        <option value="advanced" selected>Advanced (Desktop)</option>
+                        <option value="extreme">Extreme (RTX)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="geometry-detail">Geometry Detail: <span class="range-value" id="geometry-value">64</span></label>
+                    <input type="range" class="form-control" id="geometry-detail" min="16" max="256" value="64" step="16">
+                </div>
+                
+                <div class="form-group">
+                    <label for="texture-resolution">Texture Resolution: <span class="range-value" id="texture-value">1024px</span></label>
+                    <input type="range" class="form-control" id="texture-resolution" min="512" max="4096" value="1024" step="512">
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h4>📷 Camera Controls</h4>
+                <div class="btn-group">
+                    <button class="btn active" id="auto-rotate">Auto Rotate</button>
+                    <button class="btn" id="manual-camera">Manual</button>
+                </div>
+                <div class="btn-group-full">
+                    <button class="btn" id="reset-camera">Reset Camera</button>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <div class="btn-group-full">
+                    <button class="btn" id="reset-scene">🔄 Reset Scene</button>
+                    <button class="btn" id="export-data">📊 Export Data</button>
+                </div>
+            </div>
+            
+            <!-- Alert Messages -->
+            <div id="performance-alert" class="alert warning" style="display: none;">
+                ⚠️ High GPU load detected - Monitor temperatures!
+            </div>
+            
+            <div id="critical-alert" class="alert danger" style="display: none;">
+                🚨 CRITICAL: System may become unstable!
+            </div>
+            
+            <div id="info-alert" class="alert info" style="display: none;">
+                💡 Use mouse to rotate camera, scroll to zoom
+            </div>
+        </div>
+        
+        <!-- Hardware Badge -->
+        <div class="hardware-badge" id="hardware-badge">
+            RTX 4090 DETECTED
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="advanced-webgl-benchmark.js"></script>
+    <script>
+        // Main application controller
+        class BenchmarkController {
+            constructor() {
+                this.benchmark = null;
+                this.currentTest = null;
+                this.isInitialized = false;
+                
+                this.init();
+            }
+            
+            async init() {
+                try {
+                    // Show loading
+                    this.showLoading('Initializing WebGL...');
+                    
+                    // Initialize benchmark
+                    this.benchmark = new AdvancedWebGLBenchmark('canvas');
+                    
+                    // Wait for initialization
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Setup event listeners
+                    this.setupEventListeners();
+                    
+                    // Hide loading
+                    this.hideLoading();
+                    
+                    // Update hardware badge
+                    this.updateHardwareBadge();
+                    
+                    // Show info message
+                    this.showInfo('WebGL Benchmark Ready! Click stress test buttons to begin.');
+                    
+                    this.isInitialized = true;
+                    
+                } catch (error) {
+                    this.hideLoading();
+                    this.showError('Failed to initialize WebGL benchmark: ' + error.message);
+                }
+            }
+            
+            setupEventListeners() {
+                // Stress test buttons
+                document.querySelectorAll('[data-count]').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const count = parseInt(e.target.dataset.count);
+                        this.runStressTest(count, e.target.id);
+                    });
+                });
+                
+                // Feature toggles
+                document.getElementById('toggle-instancing').addEventListener('click', () => {
+                    this.toggleFeature('instancing');
+                });
+                
+                document.getElementById('toggle-shaders').addEventListener('click', () => {
+                    this.benchmark.toggleShaderComplexity();
+                });
+                
+                document.getElementById('toggle-textures').addEventListener('click', () => {
+                    this.toggleFeature('textures');
+                });
+                
+                document.getElementById('toggle-shadows').addEventListener('click', () => {
+                    this.toggleFeature('shadows');
+                });
+                
+                document.getElementById('toggle-lighting').addEventListener('click', () => {
+                    this.toggleFeature('lighting');
+                });
+                
+                document.getElementById('toggle-particles').addEventListener('click', () => {
+                    this.toggleFeature('particles');
+                });
+                
+                // Quality settings
+                document.getElementById('shader-quality').addEventListener('change', (e) => {
+                    this.benchmark.setShaderComplexity(e.target.value);
+                    this.updateShaderComplexityDisplay(e.target.value);
+                });
+                
+                document.getElementById('geometry-detail').addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    this.benchmark.setGeometryDetail(parseInt(value));
+                    document.getElementById('geometry-value').textContent = value;
+                });
+                
+                document.getElementById('texture-resolution').addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    this.benchmark.setTextureResolution(parseInt(value));
+                    document.getElementById('texture-value').textContent = value + 'px';
+                });
+                
+                // Camera controls
+                document.getElementById('auto-rotate').addEventListener('click', () => {
+                    this.benchmark.setCameraAutoRotate(true);
+                    this.updateCameraButtons(true);
+                });
+                
+                document.getElementById('manual-camera').addEventListener('click', () => {
+                    this.benchmark.setCameraAutoRotate(false);
+                    this.updateCameraButtons(false);
+                });
+                
+                document.getElementById('reset-camera').addEventListener('click', () => {
+                    this.benchmark.setCameraPosition(0, 5, 10);
+                    this.benchmark.setCameraAutoRotate(true);
+                    this.updateCameraButtons(true);
+                });
+                
+                // Utility buttons
+                document.getElementById('reset-scene').addEventListener('click', () => {
+                    this.resetScene();
+                });
+                
+                document.getElementById('export-data').addEventListener('click', () => {
+                    this.exportPerformanceData();
+                });
+                
+                // Listen to benchmark events
+                const canvas = document.getElementById('canvas');
+                canvas.addEventListener('benchmark:performanceUpdate', (e) => {
+                    this.updateStats(e.detail);
+                });
+                
+                canvas.addEventListener('benchmark:stressTestStarted', (e) => {
+                    this.onStressTestStarted(e.detail);
+                });
+                
+                canvas.addEventListener('benchmark:error', (e) => {
+                    this.showError(e.detail.error);
+                });
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    this.handleKeyboard(e);
+                });
+            }
+            
+            runStressTest(count, buttonId) {
+                if (!this.isInitialized) return;
+                
+                // Update button states
+                this.updateStressTestButtons(buttonId);
+                
+                // Show appropriate alerts
+                if (count >= 500000) {
+                    this.showCritical('EXTREME load! Monitor system stability.');
+                } else if (count >= 100000) {
+                    this.showWarning('High GPU load detected.');
+                } else {
+                    this.hideAlerts();
+                }
+                
+                // Run the test
+                this.benchmark.runStressTest(count);
+                this.currentTest = { count, buttonId };
+                
+                console.log(`🚀 Running stress test: ${count.toLocaleString()} objects`);
+            }
+            
+            toggleFeature(feature) {
+                const button = document.getElementById(`toggle-${feature}`);
+                const isActive = button.classList.contains('active');
+                
+                button.classList.toggle('active', !isActive);
+                
+                // Update benchmark settings
+                const settings = {};
+                settings[`use${feature.charAt(0).toUpperCase() + feature.slice(1)}`] = !isActive;
+                this.benchmark.updateSettings(settings);
+                
+                console.log(`${feature} ${!isActive ? 'enabled' : 'disabled'}`);
+            }
+            
+            updateStats(stats) {
+                // Update FPS display
+                const fpsDisplay = document.getElementById('fps-display');
+                const fpsValue = stats.fps || 0;
+                fpsDisplay.textContent = fpsValue;
+                
+                // Update FPS display color
+                fpsDisplay.className = 'fps-display';
+                if (fpsValue < 30) {
+                    fpsDisplay.classList.add('critical');
+                } else if (fpsValue < 50) {
+                    fpsDisplay.classList.add('warning');
+                }
+                
+                // Update stats panel
+                document.getElementById('fps-stat').textContent = fpsValue;
+                document.getElementById('frametime-stat').textContent = (stats.frameTime || 0).toFixed(1) + 'ms';
+                document.getElementById('objects-stat').textContent = (stats.objectCount || 0).toLocaleString();
+                document.getElementById('triangles-stat').textContent = (stats.triangles || 0).toLocaleString();
+                document.getElementById('vertices-stat').textContent = (stats.vertices || 0).toLocaleString();
+                document.getElementById('drawcalls-stat').textContent = (stats.drawCalls || 0).toLocaleString();
+                
+                // Update GPU load
+                const gpuLoad = this.calculateGPULoad(stats);
+                document.getElementById('gpu-load').textContent = gpuLoad.text;
+                document.getElementById('gpu-load').className = `stat-value ${gpuLoad.class}`;
+                
+                // Update performance bar
+                const performanceFill = document.getElementById('performance-fill');
+                const performanceText = document.getElementById('performance-text');
+                const stressLevel = Math.min(100, Math.max(0, (60 - fpsValue) / 60 * 100));
+                
+                performanceFill.style.width = stressLevel + '%';
+                performanceText.textContent = this.getPerformanceText(stressLevel);
+                
+                // Update memory stats
+                const gpuMemory = stats.gpuMemory || 0;
+                const textureMemory = stats.textureMemory || 0;
+                document.getElementById('gpu-memory').textContent = gpuMemory.toFixed(1) + 'MB';
+                document.getElementById('texture-memory').textContent = textureMemory.toFixed(1) + 'MB';
+            }
+            
+            calculateGPULoad(stats) {
+                const triangles = stats.triangles || 0;
+                const fps = stats.fps || 60;
+                
+                let load = 'Low';
+                let className = 'good';
+                
+                if (triangles > 500000 || fps < 30) {
+                    load = 'Extreme';
+                    className = 'critical';
+                } else if (triangles > 100000 || fps < 45) {
+                    load = 'High';
+                    className = 'warning';
+                } else if (triangles > 10000 || fps < 55) {
+                    load = 'Medium';
+                    className = 'good';
+                }
+                
+                return { text: load, class: className };
+            }
+            
+            getPerformanceText(stressLevel) {
+                if (stressLevel < 20) return 'OPTIMAL';
+                if (stressLevel < 40) return 'GOOD';
+                if (stressLevel < 60) return 'STRESSED';
+                if (stressLevel < 80) return 'CRITICAL';
+                return 'OVERLOAD';
+            }
+            
+            updateStressTestButtons(activeId) {
+                document.querySelectorAll('[data-count]').forEach(button => {
+                    button.classList.remove('active');
+                });
+                
+                if (activeId) {
+                    document.getElementById(activeId).classList.add('active');
+                }
+            }
+            
+            updateCameraButtons(autoRotate) {
+                document.getElementById('auto-rotate').classList.toggle('active', autoRotate);
+                document.getElementById('manual-camera').classList.toggle('active', !autoRotate);
+            }
+            
+            updateShaderComplexityDisplay(complexity) {
+                const displayNames = {
+                    'basic': 'Basic',
+                    'advanced': 'Advanced',
+                    'extreme': 'Extreme'
+                };
+                
+                document.getElementById('shader-complexity').textContent = displayNames[complexity] || 'Unknown';
+            }
+            
+            updateHardwareBadge() {
+                const badge = document.getElementById('hardware-badge');
+                
+                if (this.benchmark && this.benchmark.gl) {
+                    const renderer = this.benchmark.gl.getParameter(this.benchmark.gl.RENDERER);
+                    
+                    if (renderer.includes('RTX 4090')) {
+                        badge.textContent = 'RTX 4090 DETECTED';
+                        badge.style.background = 'linear-gradient(45deg, #76b900, #00ff88)';
+                    } else if (renderer.includes('RTX')) {
+                        badge.textContent = 'RTX GPU DETECTED';
+                        badge.style.background = 'linear-gradient(45deg, #4CAF50, #00ff88)';
+                    } else if (renderer.includes('GTX')) {
+                        badge.textContent = 'GTX GPU DETECTED';
+                        badge.style.background = 'linear-gradient(45deg, #ff9800, #ffeb3b)';
+                    } else {
+                        badge.textContent = 'GPU DETECTED';
+                        badge.style.background = 'linear-gradient(45deg, #2196f3, #03a9f4)';
+                    }
+                }
+            }
+            
+            resetScene() {
+                if (!this.isInitialized) return;
+                
+                this.benchmark.resetScene();
+                this.updateStressTestButtons(null);
+                this.updateCameraButtons(true);
+                this.hideAlerts();
+                this.currentTest = null;
+                
+                this.showInfo('Scene reset successfully.');
+                
+                console.log('Scene reset');
+            }
+            
+            exportPerformanceData() {
+                if (!this.isInitialized) return;
+                
+                this.benchmark.savePerformanceData();
+                this.showInfo('Performance data exported successfully.');
+            }
+            
+            onStressTestStarted(data) {
+                console.log(`Stress test started: ${data.objectCount.toLocaleString()} objects`);
+            }
+            
+            handleKeyboard(e) {
+                if (!this.isInitialized) return;
+                
+                switch (e.key) {
+                    case '1':
+                        this.runStressTest(1000, 'test-1k');
+                        break;
+                    case '2':
+                        this.runStressTest(10000, 'test-10k');
+                        break;
+                    case '3':
+                        this.runStressTest(50000, 'test-50k');
+                        break;
+                    case '4':
+                        this.runStressTest(100000, 'test-100k');
+                        break;
+                    case '5':
+                        this.runStressTest(250000, 'test-250k');
+                        break;
+                    case '6':
+                        this.runStressTest(500000, 'test-500k');
+                        break;
+                    case ' ':
+                        e.preventDefault();
+                        const autoRotate = !this.benchmark.camera.autoRotate;
+                        this.benchmark.setCameraAutoRotate(autoRotate);
+                        this.updateCameraButtons(autoRotate);
+                        break;
+                    case 'r':
+                    case 'R':
+                        this.resetScene();
+                        break;
+                    case 's':
+                    case 'S':
+                        this.benchmark.toggleShaderComplexity();
+                        break;
+                    case 'e':
+                    case 'E':
+                        this.exportPerformanceData();
+                        break;
+                }
+            }
+            
+            // UI Helper Methods
+            showLoading(message = 'Loading...') {
+                const overlay = document.getElementById('loading-overlay');
+                const text = overlay.querySelector('.loading-text');
+                text.textContent = message;
+                overlay.style.display = 'flex';
+            }
+            
+            hideLoading() {
+                document.getElementById('loading-overlay').style.display = 'none';
+            }
+            
+            showAlert(type, message) {
+                this.hideAlerts();
+                const alertId = type === 'critical' ? 'critical-alert' : 
+                               type === 'warning' ? 'performance-alert' : 'info-alert';
+                const alert = document.getElementById(alertId);
+                if (alert) {
+                    alert.style.display = 'block';
+                    if (message) {
+                        alert.textContent = message;
+                    }
+                }
+            }
+            
+            showWarning(message) {
+                this.showAlert('warning', message);
+            }
+            
+            showCritical(message) {
+                this.showAlert('critical', message);
+            }
+            
+            showInfo(message) {
+                this.showAlert('info', message);
+                setTimeout(() => this.hideAlerts(), 5000);
+            }
+            
+            hideAlerts() {
+                document.getElementById('performance-alert').style.display = 'none';
+                document.getElementById('critical-alert').style.display = 'none';
+                document.getElementById('info-alert').style.display = 'none';
