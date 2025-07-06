@@ -1,6 +1,3 @@
-//let canvas = document.getElementById('canvas');
-//let gl = canvas.getContext('webgl');
-
 var canvas = document.getElementById('webgl-canvas');
 var gl = canvas.getContext('webgl');
 
