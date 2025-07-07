@@ -1,80 +1,134 @@
+// src/metrics/gpuTimer.ts
 import type { IGpuTimer } from '../types';
 
-export class WebGPUGpuTimer implements IGpuTimer {
-  private device: GPUDevice;
-  private querySet: GPUQuerySet | null = null;
-  private resolveBuffer: GPUBuffer | null = null;
-  private resultBuffer: GPUBuffer | null = null;
-  private isPolling = false;
+export class WebGLGpuTimer implements IGpuTimer {
+  private gl: WebGL2RenderingContext;
+  private ext: any;
+  private queries: WebGLQuery[] = [];
+  private queryPool: WebGLQuery[] = [];
+  private pendingQueries: Map<WebGLQuery, number> = new Map();
   
-  constructor(device: GPUDevice) {
-    this.device = device;
+  constructor(gl: WebGL2RenderingContext) {
+    this.gl = gl;
+    this.ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
     
-    // Check if timestamp queries are supported
-    if (!device.features.has('timestamp-query')) {
-      console.warn('Timestamp queries not supported on this device');
+    if (!this.ext) {
+      console.warn('GPU timing not available - EXT_disjoint_timer_query_webgl2 not supported');
     }
   }
   
   begin(): void {
-    if (!this.device.features.has('timestamp-query') || this.isPolling) return;
+    if (!this.ext) return;
     
-    // Create query set for 2 timestamps (begin and end)
-    this.querySet = this.device.createQuerySet({
-      type: 'timestamp',
-      count: 2
-    });
+    // Get or create query
+    let query = this.queryPool.pop();
+    if (!query) {
+      query = this.gl.createQuery()!;
+    }
     
-    // Create buffers for query results
-    this.resolveBuffer = this.device.createBuffer({
-      size: 16, // 2 * 8 bytes for 2 timestamps
-      usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC
-    });
-    
-    this.resultBuffer = this.device.createBuffer({
-      size: 16,
-      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
-    });
+    this.gl.beginQuery(this.ext.TIME_ELAPSED_EXT, query);
+    this.queries.push(query);
   }
   
   end(): void {
-    if (!this.querySet || !this.resolveBuffer || !this.resultBuffer) return;
+    if (!this.ext || this.queries.length === 0) return;
     
-    // In a real implementation, you'd write timestamps in command encoder
-    // This is a simplified version
-    this.isPolling = true;
+    this.gl.endQuery(this.ext.TIME_ELAPSED_EXT);
+    const query = this.queries[this.queries.length - 1];
+    this.pendingQueries.set(query, performance.now());
   }
   
-  async poll(): Promise<number | null> {
-    if (!this.isPolling || !this.resultBuffer) return null;
+  poll(): number | null {
+    if (!this.ext) return null;
     
-    try {
-      // Map the result buffer to read timestamps
-      await this.resultBuffer.mapAsync(GPUMapMode.READ);
-      const arrayBuffer = this.resultBuffer.getMappedRange();
-      const timestamps = new BigUint64Array(arrayBuffer);
+    let totalTime = 0;
+    let completedQueries = 0;
+    
+    // Check all pending queries
+    for (const [query, startTime] of this.pendingQueries) {
+      // Skip if query is too recent (give GPU time to complete)
+      if (performance.now() - startTime < 2) continue;
       
-      const startTime = Number(timestamps[0]);
-      const endTime = Number(timestamps[1]);
+      const available = this.gl.getQueryParameter(query, this.gl.QUERY_RESULT_AVAILABLE);
+      const disjoint = this.gl.getParameter(this.ext.GPU_DISJOINT_EXT);
       
-      this.resultBuffer.unmap();
+      if (available && !disjoint) {
+        const timeElapsed = this.gl.getQueryParameter(query, this.gl.QUERY_RESULT);
+        totalTime += timeElapsed / 1000000; // Convert to ms
+        completedQueries++;
+        
+        // Return query to pool
+        this.pendingQueries.delete(query);
+        this.queryPool.push(query);
+        this.queries = this.queries.filter(q => q !== query);
+      }
       
-      // Clean up
-      if (this.querySet) this.querySet.destroy();
-      if (this.resolveBuffer) this.resolveBuffer.destroy();
-      if (this.resultBuffer) this.resultBuffer.destroy();
-      
-      this.querySet = null;
-      this.resolveBuffer = null;
-      this.resultBuffer = null;
-      this.isPolling = false;
-      
-      // Convert nanoseconds to milliseconds
-      return (endTime - startTime) / 1000000;
-    } catch (error) {
-      console.error('Error reading GPU timestamps:', error);
-      this.isPolling = false;
-      return null;
+      if (disjoint) {
+        // Query was interrupted, discard it
+        this.gl.deleteQuery(query);
+        this.pendingQueries.delete(query);
+        this.queries = this.queries.filter(q => q !== query);
+      }
+    }
+    
+    return completedQueries > 0 ? totalTime / completedQueries : null;
+  }
+  
+  destroy(): void {
+    // Clean up all queries
+    [...this.queries, ...this.queryPool].forEach(query => {
+      this.gl.deleteQuery(query);
+    });
+    this.queries = [];
+    this.queryPool = [];
+    this.pendingQueries.clear();
+  }
+}
+
+export class WebGPUGpuTimer implements IGpuTimer {
+  private device: GPUDevice | null = null;
+  private hasTimestampQuery = false;
+  
+  constructor(device: GPUDevice) {
+    this.device = device;
+    this.hasTimestampQuery = device.features.has('timestamp-query');
+    
+    if (!this.hasTimestampQuery) {
+      console.warn('GPU timing not available - timestamp-query not supported');
     }
   }
+  
+  begin(): void {
+    // WebGPU timing requires integration with command encoder
+    // This is a simplified version - real implementation would need
+    // to hook into the render pipeline
+  }
+  
+  end(): void {
+    // See begin()
+  }
+  
+  poll(): number | null {
+    // For now, return null - full implementation would require
+    // significant integration with WebGPU render pipeline
+    return null;
+  }
+  
+  destroy(): void {
+    // Cleanup if needed
+  }
+}
+
+// Factory function
+export function createGpuTimer(renderer: any): IGpuTimer | null {
+  if (renderer.isWebGLRenderer) {
+    const gl = renderer.getContext() as WebGL2RenderingContext;
+    return new WebGLGpuTimer(gl);
+  } else if (renderer.isWebGPURenderer) {
+    // WebGPU renderer would need to expose device
+    console.warn('WebGPU GPU timing not yet implemented');
+    return null;
+  }
+  
+  return null;
 }
