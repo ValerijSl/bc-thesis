@@ -16,6 +16,16 @@ export class WebGLRenderer {
         console.log('🎨 Setting up WebGL renderer...');
         
         try {
+            // Test WebGL support first
+            const testCanvas = document.createElement('canvas');
+            const testContext = testCanvas.getContext('webgl') || testCanvas.getContext('experimental-webgl');
+            
+            if (!testContext) {
+                throw new Error('WebGL not supported in this browser');
+            }
+            
+            console.log('✅ WebGL context test successful');
+            
             // Create renderer with WebGL context
             this.renderer = new THREE.WebGLRenderer({
                 antialias: true,
@@ -23,15 +33,16 @@ export class WebGLRenderer {
                 stencil: false,
                 depth: true,
                 powerPreference: "high-performance",
-                preserveDrawingBuffer: false
+                preserveDrawingBuffer: false,
+                failIfMajorPerformanceCaveat: false
             });
             
             // Get canvas and context
             this.canvas = this.renderer.domElement;
-            this.context = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
+            this.context = this.renderer.getContext();
             
             if (!this.context) {
-                throw new Error('WebGL not supported');
+                throw new Error('Failed to get WebGL context from renderer');
             }
             
             // Configure renderer
@@ -51,6 +62,9 @@ export class WebGLRenderer {
             
             // Get capabilities
             this.capabilities = this.getCapabilities();
+            
+            // Setup context loss handling
+            this.setupContextLossHandling();
             
             console.log('✅ WebGL renderer initialized');
             console.log('📊 WebGL Capabilities:', this.capabilities);
@@ -101,38 +115,48 @@ export class WebGLRenderer {
         
         const gl = this.context;
         
-        return {
-            // Renderer info
-            renderer: gl.getParameter(gl.RENDERER),
-            vendor: gl.getParameter(gl.VENDOR),
-            version: gl.getParameter(gl.VERSION),
-            shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
-            
-            // Limits
-            maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
-            maxCubeMapTextureSize: gl.getParameter(gl.MAX_CUBE_MAP_TEXTURE_SIZE),
-            maxTextureImageUnits: gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS),
-            maxVertexTextureImageUnits: gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS),
-            maxCombinedTextureImageUnits: gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS),
-            maxVertexAttribs: gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
-            maxVertexUniformVectors: gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS),
-            maxFragmentUniformVectors: gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS),
-            maxVaryingVectors: gl.getParameter(gl.MAX_VARYING_VECTORS),
-            maxViewportDims: gl.getParameter(gl.MAX_VIEWPORT_DIMS),
-            
-            // Extensions
-            extensions: this.getSupportedExtensions(),
-            
-            // Features
-            depthTexture: !!gl.getExtension('WEBGL_depth_texture'),
-            textureFloat: !!gl.getExtension('OES_texture_float'),
-            textureHalfFloat: !!gl.getExtension('OES_texture_half_float'),
-            vertexArrayObject: !!gl.getExtension('OES_vertex_array_object'),
-            instancedArrays: !!gl.getExtension('ANGLE_instanced_arrays'),
-            
-            // Memory info (if available)
-            memoryInfo: this.getMemoryInfo()
-        };
+        try {
+            return {
+                // Renderer info
+                renderer: gl.getParameter(gl.RENDERER) || 'Unknown',
+                vendor: gl.getParameter(gl.VENDOR) || 'Unknown',
+                version: gl.getParameter(gl.VERSION) || 'Unknown',
+                shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION) || 'Unknown',
+                
+                // Limits
+                maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE) || 0,
+                maxCubeMapTextureSize: gl.getParameter(gl.MAX_CUBE_MAP_TEXTURE_SIZE) || 0,
+                maxTextureImageUnits: gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) || 0,
+                maxVertexTextureImageUnits: gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS) || 0,
+                maxCombinedTextureImageUnits: gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS) || 0,
+                maxVertexAttribs: gl.getParameter(gl.MAX_VERTEX_ATTRIBS) || 0,
+                maxVertexUniformVectors: gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS) || 0,
+                maxFragmentUniformVectors: gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS) || 0,
+                maxVaryingVectors: gl.getParameter(gl.MAX_VARYING_VECTORS) || 0,
+                maxViewportDims: gl.getParameter(gl.MAX_VIEWPORT_DIMS) || [0, 0],
+                
+                // Extensions
+                extensions: this.getSupportedExtensions(),
+                
+                // Features
+                depthTexture: !!gl.getExtension('WEBGL_depth_texture'),
+                textureFloat: !!gl.getExtension('OES_texture_float'),
+                textureHalfFloat: !!gl.getExtension('OES_texture_half_float'),
+                vertexArrayObject: !!gl.getExtension('OES_vertex_array_object'),
+                instancedArrays: !!gl.getExtension('ANGLE_instanced_arrays'),
+                
+                // Memory info (if available)
+                memoryInfo: this.getMemoryInfo()
+            };
+        } catch (error) {
+            console.warn('Error getting WebGL capabilities:', error);
+            return {
+                renderer: 'Unknown',
+                vendor: 'Unknown',
+                version: 'Unknown',
+                error: error.message
+            };
+        }
     }
     
     /**
@@ -141,7 +165,12 @@ export class WebGLRenderer {
     getSupportedExtensions() {
         if (!this.context) return [];
         
-        return this.context.getSupportedExtensions() || [];
+        try {
+            return this.context.getSupportedExtensions() || [];
+        } catch (error) {
+            console.warn('Error getting extensions:', error);
+            return [];
+        }
     }
     
     /**
@@ -150,12 +179,16 @@ export class WebGLRenderer {
     getMemoryInfo() {
         if (!this.context) return null;
         
-        const ext = this.context.getExtension('WEBGL_debug_renderer_info');
-        if (ext) {
-            return {
-                unmaskedRenderer: this.context.getParameter(ext.UNMASKED_RENDERER_WEBGL),
-                unmaskedVendor: this.context.getParameter(ext.UNMASKED_VENDOR_WEBGL)
-            };
+        try {
+            const ext = this.context.getExtension('WEBGL_debug_renderer_info');
+            if (ext) {
+                return {
+                    unmaskedRenderer: this.context.getParameter(ext.UNMASKED_RENDERER_WEBGL),
+                    unmaskedVendor: this.context.getParameter(ext.UNMASKED_VENDOR_WEBGL)
+                };
+            }
+        } catch (error) {
+            console.warn('Error getting memory info:', error);
         }
         
         return null;
@@ -173,15 +206,15 @@ export class WebGLRenderer {
         
         return {
             // Render statistics
-            frame: info.render.frame,
-            calls: info.render.calls,
-            triangles: info.render.triangles,
-            points: info.render.points,
-            lines: info.render.lines,
+            frame: info.render.frame || 0,
+            calls: info.render.calls || 0,
+            triangles: info.render.triangles || 0,
+            points: info.render.points || 0,
+            lines: info.render.lines || 0,
             
             // Memory statistics
-            geometries: info.memory.geometries,
-            textures: info.memory.textures,
+            geometries: info.memory.geometries || 0,
+            textures: info.memory.textures || 0,
             
             // Programs
             programs: info.programs ? info.programs.length : 0,
@@ -207,33 +240,37 @@ export class WebGLRenderer {
     checkForErrors() {
         if (!this.context) return null;
         
-        const error = this.context.getError();
-        if (error !== this.context.NO_ERROR) {
-            let errorString = 'Unknown WebGL error';
-            
-            switch (error) {
-                case this.context.INVALID_ENUM:
-                    errorString = 'INVALID_ENUM';
-                    break;
-                case this.context.INVALID_VALUE:
-                    errorString = 'INVALID_VALUE';
-                    break;
-                case this.context.INVALID_OPERATION:
-                    errorString = 'INVALID_OPERATION';
-                    break;
-                case this.context.INVALID_FRAMEBUFFER_OPERATION:
-                    errorString = 'INVALID_FRAMEBUFFER_OPERATION';
-                    break;
-                case this.context.OUT_OF_MEMORY:
-                    errorString = 'OUT_OF_MEMORY';
-                    break;
-                case this.context.CONTEXT_LOST_WEBGL:
-                    errorString = 'CONTEXT_LOST_WEBGL';
-                    break;
+        try {
+            const error = this.context.getError();
+            if (error !== this.context.NO_ERROR) {
+                let errorString = 'Unknown WebGL error';
+                
+                switch (error) {
+                    case this.context.INVALID_ENUM:
+                        errorString = 'INVALID_ENUM';
+                        break;
+                    case this.context.INVALID_VALUE:
+                        errorString = 'INVALID_VALUE';
+                        break;
+                    case this.context.INVALID_OPERATION:
+                        errorString = 'INVALID_OPERATION';
+                        break;
+                    case this.context.INVALID_FRAMEBUFFER_OPERATION:
+                        errorString = 'INVALID_FRAMEBUFFER_OPERATION';
+                        break;
+                    case this.context.OUT_OF_MEMORY:
+                        errorString = 'OUT_OF_MEMORY';
+                        break;
+                    case this.context.CONTEXT_LOST_WEBGL:
+                        errorString = 'CONTEXT_LOST_WEBGL';
+                        break;
+                }
+                
+                console.error('🚨 WebGL Error:', errorString, error);
+                return { error: errorString, code: error };
             }
-            
-            console.error('🚨 WebGL Error:', errorString, error);
-            return { error: errorString, code: error };
+        } catch (e) {
+            console.warn('Error checking for WebGL errors:', e);
         }
         
         return null;

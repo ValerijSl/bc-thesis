@@ -1,5 +1,5 @@
-// Chapter 7 - UI Controller
-// Manages all UI interactions and updates
+// ui-controller.js
+// Fixed UI Controller that works with your existing HTML elements
 
 export class UIController {
     constructor(app) {
@@ -7,15 +7,18 @@ export class UIController {
         this.elements = {};
         this.isTestRunning = false;
         
-        this.initializeElements();
-        this.setupEventListeners();
+        // Wait for DOM to be ready, then initialize
+        setTimeout(() => {
+            this.initializeElements();
+            this.setupEventListeners();
+        }, 100);
     }
     
     /**
-     * Initialize UI element references
+     * Initialize existing UI element references from your HTML
      */
     initializeElements() {
-        // Info panel elements
+        // Info panel elements (from your existing HTML)
         this.elements.currentRenderer = document.getElementById('current-renderer');
         this.elements.fps = document.getElementById('fps');
         this.elements.frameTime = document.getElementById('frame-time');
@@ -23,7 +26,7 @@ export class UIController {
         this.elements.triangles = document.getElementById('triangles');
         this.elements.memory = document.getElementById('memory');
         
-        // Control elements
+        // Control elements (from your existing HTML)
         this.elements.rendererSelect = document.getElementById('renderer-select');
         this.elements.parallaxScale = document.getElementById('parallaxScale');
         this.elements.parallaxScaleValue = document.getElementById('parallaxScaleValue');
@@ -37,22 +40,31 @@ export class UIController {
         this.elements.helixHeightValue = document.getElementById('helixHeightValue');
         this.elements.wireframe = document.getElementById('wireframe');
         
-        // Test control elements
+        // Test control elements (from your existing HTML)
         this.elements.startTest = document.getElementById('startTest');
         this.elements.exportData = document.getElementById('exportData');
         this.elements.clearData = document.getElementById('clearData');
         this.elements.testStatus = document.getElementById('test-status');
         
-        // Verify all elements exist
+        // Check which elements exist
+        const missingElements = [];
         Object.entries(this.elements).forEach(([key, element]) => {
             if (!element) {
-                console.warn(`⚠️ UI element not found: ${key}`);
+                missingElements.push(key);
             }
         });
+        
+        if (missingElements.length > 0) {
+            console.warn(`⚠️ UI elements not found: ${missingElements.join(', ')}`);
+        } else {
+            console.log('✅ All UI elements found and connected');
+        }
+        
+        console.log('🎛️ UI Controller initialized with existing HTML elements');
     }
     
     /**
-     * Setup event listeners for UI controls
+     * Setup event listeners for all controls
      */
     setupEventListeners() {
         // Renderer selection
@@ -94,7 +106,6 @@ export class UIController {
             });
         }
         
-        // Wireframe toggle
         if (this.elements.wireframe) {
             this.elements.wireframe.addEventListener('change', (e) => {
                 this.updateWireframe(e.target.checked);
@@ -119,6 +130,8 @@ export class UIController {
                 this.handleClearData();
             });
         }
+        
+        console.log('🎮 Event listeners connected to existing HTML controls');
     }
     
     /**
@@ -127,7 +140,9 @@ export class UIController {
     async handleRendererChange(rendererType) {
         if (this.isTestRunning) {
             this.showError('Cannot change renderer during test');
-            this.elements.rendererSelect.value = this.app.currentRenderer;
+            if (this.elements.rendererSelect) {
+                this.elements.rendererSelect.value = this.app.currentRenderer;
+            }
             return;
         }
         
@@ -138,7 +153,9 @@ export class UIController {
             this.showMessage(`Switched to ${rendererType.toUpperCase()}`, 'success');
         } catch (error) {
             this.showError(`Failed to switch to ${rendererType}: ${error.message}`);
-            this.elements.rendererSelect.value = this.app.currentRenderer;
+            if (this.elements.rendererSelect) {
+                this.elements.rendererSelect.value = this.app.currentRenderer;
+            }
         }
     }
     
@@ -150,7 +167,11 @@ export class UIController {
             this.elements.parallaxScaleValue.textContent = value.toFixed(2);
         }
         
-        this.app.updateHelixParameters({ parallaxScale: value });
+        if (this.app && this.app.updateHelixParameters) {
+            this.app.updateHelixParameters({ parallaxScale: value });
+        }
+        
+        console.log(`🔧 Parallax scale updated: ${value}`);
     }
     
     /**
@@ -162,14 +183,21 @@ export class UIController {
         }
         
         // Ensure min <= max
-        const maxLayers = parseInt(this.elements.maxLayers.value);
-        if (value > maxLayers) {
-            this.elements.maxLayers.value = value;
-            this.elements.maxLayersValue.textContent = value;
-            this.app.updateHelixParameters({ minLayers: value, maxLayers: value });
-        } else {
+        if (this.elements.maxLayers) {
+            const maxLayers = parseInt(this.elements.maxLayers.value);
+            if (value > maxLayers) {
+                this.elements.maxLayers.value = value;
+                if (this.elements.maxLayersValue) {
+                    this.elements.maxLayersValue.textContent = value;
+                }
+            }
+        }
+        
+        if (this.app && this.app.updateHelixParameters) {
             this.app.updateHelixParameters({ minLayers: value });
         }
+        
+        console.log(`🔧 Min layers updated: ${value}`);
     }
     
     /**
@@ -181,14 +209,21 @@ export class UIController {
         }
         
         // Ensure max >= min
-        const minLayers = parseInt(this.elements.minLayers.value);
-        if (value < minLayers) {
-            this.elements.minLayers.value = value;
-            this.elements.minLayersValue.textContent = value;
-            this.app.updateHelixParameters({ minLayers: value, maxLayers: value });
-        } else {
+        if (this.elements.minLayers) {
+            const minLayers = parseInt(this.elements.minLayers.value);
+            if (value < minLayers) {
+                this.elements.minLayers.value = value;
+                if (this.elements.minLayersValue) {
+                    this.elements.minLayersValue.textContent = value;
+                }
+            }
+        }
+        
+        if (this.app && this.app.updateHelixParameters) {
             this.app.updateHelixParameters({ maxLayers: value });
         }
+        
+        console.log(`🔧 Max layers updated: ${value}`);
     }
     
     /**
@@ -199,7 +234,11 @@ export class UIController {
             this.elements.helixRadiusValue.textContent = value.toFixed(1);
         }
         
-        this.app.updateHelixParameters({ radius: value });
+        if (this.app && this.app.updateHelixParameters) {
+            this.app.updateHelixParameters({ radius: value });
+        }
+        
+        console.log(`🔧 Helix radius updated: ${value}`);
     }
     
     /**
@@ -210,14 +249,22 @@ export class UIController {
             this.elements.helixHeightValue.textContent = value.toFixed(1);
         }
         
-        this.app.updateHelixParameters({ height: value });
+        if (this.app && this.app.updateHelixParameters) {
+            this.app.updateHelixParameters({ height: value });
+        }
+        
+        console.log(`🔧 Helix height updated: ${value}`);
     }
     
     /**
      * Update wireframe mode
      */
     updateWireframe(enabled) {
-        this.app.updateHelixParameters({ wireframe: enabled });
+        if (this.app && this.app.updateHelixParameters) {
+            this.app.updateHelixParameters({ wireframe: enabled });
+        }
+        
+        console.log(`🔧 Wireframe mode: ${enabled ? 'ON' : 'OFF'}`);
     }
     
     /**
@@ -229,14 +276,23 @@ export class UIController {
             return;
         }
         
+        if (!this.app || !this.app.startPerformanceTest) {
+            this.showError('Performance testing not available');
+            return;
+        }
+        
         this.isTestRunning = true;
         
         // Update UI
-        this.elements.startTest.textContent = 'Testing... (30s)';
-        this.elements.startTest.disabled = true;
-        this.elements.rendererSelect.disabled = true;
+        if (this.elements.startTest) {
+            this.elements.startTest.textContent = 'Testing... (30s)';
+            this.elements.startTest.disabled = true;
+        }
+        if (this.elements.rendererSelect) {
+            this.elements.rendererSelect.disabled = true;
+        }
         
-        this.showTestStatus('Running 30-second performance test...', 'active');
+        this.showTestStatus(`Running 30-second performance test with ${this.app.currentRenderer.toUpperCase()}...`, 'info');
         
         try {
             const results = await this.app.startPerformanceTest(30000);
@@ -255,9 +311,13 @@ export class UIController {
         } finally {
             // Reset UI
             this.isTestRunning = false;
-            this.elements.startTest.textContent = 'Start Performance Test (30s)';
-            this.elements.startTest.disabled = false;
-            this.elements.rendererSelect.disabled = false;
+            if (this.elements.startTest) {
+                this.elements.startTest.textContent = 'Start Performance Test (30s)';
+                this.elements.startTest.disabled = false;
+            }
+            if (this.elements.rendererSelect) {
+                this.elements.rendererSelect.disabled = false;
+            }
         }
     }
     
@@ -266,8 +326,12 @@ export class UIController {
      */
     handleExportData() {
         try {
-            this.app.exportTestData();
-            this.showMessage('Data exported successfully', 'success');
+            if (this.app && this.app.exportTestData) {
+                this.app.exportTestData();
+                this.showMessage('Data exported successfully', 'success');
+            } else {
+                this.showError('Export functionality not available');
+            }
         } catch (error) {
             this.showError('Failed to export data: ' + error.message);
         }
@@ -278,8 +342,10 @@ export class UIController {
      */
     handleClearData() {
         if (confirm('Are you sure you want to clear all test data?')) {
-            this.app.clearTestData();
-            this.showTestStatus('', '');
+            if (this.app && this.app.clearTestData) {
+                this.app.clearTestData();
+                this.showTestStatus('', '');
+            }
         }
     }
     
@@ -307,7 +373,7 @@ export class UIController {
         }
         
         if (this.elements.frameTime) {
-            this.elements.frameTime.textContent = metrics.frameTime || 0;
+            this.elements.frameTime.textContent = (metrics.frameTime || 0).toFixed(1);
         }
         
         if (this.elements.memory) {
@@ -321,15 +387,19 @@ export class UIController {
     updateGeometryInfo(geometry) {
         if (!geometry) return;
         
-        const vertexCount = geometry.attributes.position ? geometry.attributes.position.count : 0;
-        const triangleCount = geometry.index ? geometry.index.count / 3 : vertexCount / 3;
-        
-        if (this.elements.vertices) {
-            this.elements.vertices.textContent = vertexCount.toLocaleString();
-        }
-        
-        if (this.elements.triangles) {
-            this.elements.triangles.textContent = Math.floor(triangleCount).toLocaleString();
+        try {
+            const vertexCount = geometry.attributes.position ? geometry.attributes.position.count : 0;
+            const triangleCount = geometry.index ? geometry.index.count / 3 : vertexCount / 3;
+            
+            if (this.elements.vertices) {
+                this.elements.vertices.textContent = vertexCount.toLocaleString();
+            }
+            
+            if (this.elements.triangles) {
+                this.elements.triangles.textContent = Math.floor(triangleCount).toLocaleString();
+            }
+        } catch (error) {
+            console.warn('Error updating geometry info:', error);
         }
     }
     
@@ -351,11 +421,22 @@ export class UIController {
      * Show test status message
      */
     showTestStatus(message, type = '') {
-        if (!this.elements.testStatus) return;
-        
-        this.elements.testStatus.textContent = message;
-        this.elements.testStatus.className = type ? `active ${type}` : '';
-        this.elements.testStatus.style.display = message ? 'block' : 'none';
+        if (this.elements.testStatus) {
+            this.elements.testStatus.textContent = message;
+            this.elements.testStatus.style.display = message ? 'block' : 'none';
+            
+            // Set colors based on type
+            if (type === 'error') {
+                this.elements.testStatus.style.color = '#f44336';
+                this.elements.testStatus.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
+            } else if (type === 'success') {
+                this.elements.testStatus.style.color = '#4CAF50';
+                this.elements.testStatus.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+            } else {
+                this.elements.testStatus.style.color = '#2196F3';
+                this.elements.testStatus.style.backgroundColor = 'rgba(33, 150, 243, 0.1)';
+            }
+        }
     }
     
     /**
@@ -367,7 +448,7 @@ export class UIController {
         
         // Auto-hide after 5 seconds
         setTimeout(() => {
-            if (this.elements.testStatus.textContent === message) {
+            if (this.elements.testStatus && this.elements.testStatus.textContent === message) {
                 this.showTestStatus('', '');
             }
         }, 5000);
@@ -383,7 +464,7 @@ export class UIController {
         // Auto-hide after 3 seconds for success messages
         if (type === 'success') {
             setTimeout(() => {
-                if (this.elements.testStatus.textContent === message) {
+                if (this.elements.testStatus && this.elements.testStatus.textContent === message) {
                     this.showTestStatus('', '');
                 }
             }, 3000);
@@ -391,35 +472,9 @@ export class UIController {
     }
     
     /**
-     * Set UI state (enabled/disabled)
-     */
-    setUIState(enabled) {
-        const controls = [
-            this.elements.rendererSelect,
-            this.elements.parallaxScale,
-            this.elements.minLayers,
-            this.elements.maxLayers,
-            this.elements.helixRadius,
-            this.elements.helixHeight,
-            this.elements.wireframe,
-            this.elements.startTest,
-            this.elements.exportData,
-            this.elements.clearData
-        ];
-        
-        controls.forEach(control => {
-            if (control) {
-                control.disabled = !enabled;
-            }
-        });
-    }
-    
-    /**
      * Dispose of UI controller
      */
     dispose() {
-        // Remove event listeners would be added here if we stored references
-        // For now, just clear references
         this.elements = {};
         this.app = null;
         

@@ -1,5 +1,5 @@
-// Chapter 7 - Parallax Mapping Shader
-// Implements Parallax Occlusion Mapping (POM) with adaptive layer count
+// parallax-shader.js  
+// Improved parallax mapping shader with better compatibility
 
 export class ParallaxShader {
     constructor() {
@@ -9,9 +9,7 @@ export class ParallaxShader {
     }
     
     /**
-     * Creates a parallax mapping material
-     * @param {Object} params - Material parameters
-     * @returns {THREE.ShaderMaterial}
+     * Creates an improved parallax material
      */
     createMaterial(params = {}) {
         const textures = this.createTextures();
@@ -22,270 +20,188 @@ export class ParallaxShader {
                 albedoMap: { value: textures.albedo },
                 heightMap: { value: textures.height },
                 normalMap: { value: textures.normal },
-                roughnessMap: { value: textures.roughness },
                 
-                // Parallax parameters
-                parallaxScale: { value: params.parallaxScale || 0.1 },
-                minLayers: { value: params.minLayers || 8.0 },
-                maxLayers: { value: params.maxLayers || 32.0 },
+                // Enhanced parallax parameters
+                parallaxScale: { value: params.parallaxScale || 0.08 },
+                parallaxLayers: { value: params.parallaxLayers || 16 },
+                steepParallax: { value: params.steepParallax || false },
                 
                 // Lighting
-                lightPosition: { value: new THREE.Vector3(5, 10, 5) },
+                lightPosition: { value: new THREE.Vector3(10, 15, 10) },
                 lightColor: { value: new THREE.Color(0xffffff) },
-                lightIntensity: { value: 1.0 },
                 
                 // Material properties
                 materialColor: { value: new THREE.Color(0xffffff) },
-                roughness: { value: 0.5 },
-                metalness: { value: 0.1 },
                 
                 // Camera
                 cameraPosition: { value: new THREE.Vector3() },
                 
-                // Time for animations
+                // Time
                 time: { value: 0.0 }
             },
             
             vertexShader: this.vertexShader,
             fragmentShader: this.fragmentShader,
             
-            // Render state
             side: THREE.DoubleSide,
-            transparent: false,
-            
-            // Enable derivatives for normal mapping
-            extensions: {
-                derivatives: true
-            }
+            wireframe: params.wireframe || false
         });
         
-        // Mark for updates
-        material.needsUpdate = true;
+        // Store reference for easy updates
+        material.isParallaxShader = true;
         
         return material;
     }
     
     /**
-     * Vertex shader for parallax mapping
-     * Calculates tangent space matrix for fragment shader
+     * Improved vertex shader
      */
     getVertexShader() {
         return `
-            // Attributes
-            attribute vec3 position;
-            attribute vec3 normal;
-            attribute vec2 uv;
-            attribute vec4 tangent;
-            
-            // Uniforms
-            uniform mat4 modelMatrix;
-            uniform mat4 modelViewMatrix;
-            uniform mat4 projectionMatrix;
-            uniform mat3 normalMatrix;
             uniform vec3 cameraPosition;
+            uniform float time;
             
-            // Varyings to fragment shader
             varying vec2 vUv;
             varying vec3 vWorldPosition;
-            varying vec3 vViewPosition;
             varying vec3 vNormal;
             varying vec3 vTangent;
             varying vec3 vBitangent;
-            varying mat3 vTBN;
             varying vec3 vViewDir;
+            varying mat3 vTBN;
             
             void main() {
-                // Transform position
                 vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                
                 vWorldPosition = worldPosition.xyz;
-                vViewPosition = mvPosition.xyz;
                 vUv = uv;
                 
-                // Transform normals and tangents to world space
-                vNormal = normalize(normalMatrix * normal);
-                vTangent = normalize(normalMatrix * tangent.xyz);
+                // Calculate tangent space
+                vec3 objectNormal = vec3(normal);
+                vec3 objectTangent = vec3(1.0, 0.0, 0.0);
                 
-                // Calculate bitangent using cross product
-                // tangent.w contains handedness (+1 or -1)
-                vBitangent = normalize(cross(vNormal, vTangent) * tangent.w);
+                // Create bitangent
+                vec3 objectBitangent = cross(objectNormal, objectTangent);
                 
-                // Create TBN matrix for tangent space calculations
+                // Transform to world space
+                vNormal = normalize(normalMatrix * objectNormal);
+                vTangent = normalize(normalMatrix * objectTangent);
+                vBitangent = normalize(normalMatrix * objectBitangent);
+                
+                // Create TBN matrix
                 vTBN = mat3(vTangent, vBitangent, vNormal);
                 
                 // Calculate view direction in tangent space
                 vec3 worldViewDir = normalize(cameraPosition - vWorldPosition);
                 vViewDir = normalize(transpose(vTBN) * worldViewDir);
                 
-                gl_Position = projectionMatrix * mvPosition;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
         `;
     }
     
     /**
-     * Fragment shader implementing Parallax Occlusion Mapping
-     * Uses adaptive layer count based on viewing angle
+     * Improved fragment shader with multiple parallax techniques
      */
     getFragmentShader() {
         return `
-            #extension GL_OES_standard_derivatives : enable
+            precision mediump float;
             
-            precision highp float;
-            
-            // Texture samplers
             uniform sampler2D albedoMap;
             uniform sampler2D heightMap;
             uniform sampler2D normalMap;
-            uniform sampler2D roughnessMap;
-            
-            // Parallax parameters
             uniform float parallaxScale;
-            uniform float minLayers;
-            uniform float maxLayers;
-            
-            // Lighting
+            uniform int parallaxLayers;
+            uniform bool steepParallax;
             uniform vec3 lightPosition;
             uniform vec3 lightColor;
-            uniform float lightIntensity;
-            
-            // Material properties
             uniform vec3 materialColor;
-            uniform float roughness;
-            uniform float metalness;
-            
-            // Camera
             uniform vec3 cameraPosition;
-            
-            // Time for animations
             uniform float time;
             
-            // Varyings from vertex shader
             varying vec2 vUv;
             varying vec3 vWorldPosition;
-            varying vec3 vViewPosition;
             varying vec3 vNormal;
             varying vec3 vTangent;
             varying vec3 vBitangent;
-            varying mat3 vTBN;
             varying vec3 vViewDir;
+            varying mat3 vTBN;
             
-            /**
-             * Parallax Occlusion Mapping implementation
-             * Returns displaced texture coordinates
-             */
-            vec2 parallaxOcclusionMapping(vec2 texCoords, vec3 viewDir) {
-                // Early exit if parallax is disabled
-                if (parallaxScale <= 0.0) {
-                    return texCoords;
-                }
-                
-                // Adaptive layer count based on viewing angle
-                float numLayers = mix(maxLayers, minLayers, abs(dot(vec3(0.0, 0.0, 1.0), viewDir)));
-                
-                // Ray marching parameters
-                float layerDepth = 1.0 / numLayers;
+            // Simple parallax mapping
+            vec2 parallaxMapping(vec2 texCoords, vec3 viewDir) {
+                float height = texture2D(heightMap, texCoords).r;
+                vec2 p = viewDir.xy * (height * parallaxScale);
+                return texCoords - p;
+            }
+            
+            // Steep parallax mapping (approximation)
+            vec2 steepParallaxMapping(vec2 texCoords, vec3 viewDir) {
+                const int numLayers = 16;
+                float layerDepth = 1.0 / float(numLayers);
                 float currentLayerDepth = 0.0;
                 
-                // Calculate offset direction and step size
                 vec2 P = viewDir.xy * parallaxScale;
-                vec2 deltaTexCoords = P / numLayers;
+                vec2 deltaTexCoords = P / float(numLayers);
                 
-                // Start ray marching
                 vec2 currentTexCoords = texCoords;
                 float currentDepthMapValue = texture2D(heightMap, currentTexCoords).r;
                 
-                // March along the ray until we hit a surface
-                while (currentLayerDepth < currentDepthMapValue) {
+                // Layer by layer search
+                for(int i = 0; i < 16; i++) {
+                    if(currentLayerDepth >= currentDepthMapValue) break;
+                    
                     currentTexCoords -= deltaTexCoords;
                     currentDepthMapValue = texture2D(heightMap, currentTexCoords).r;
                     currentLayerDepth += layerDepth;
                 }
                 
-                // Parallax occlusion refinement using linear interpolation
+                // Simple interpolation
                 vec2 prevTexCoords = currentTexCoords + deltaTexCoords;
-                
                 float afterDepth = currentDepthMapValue - currentLayerDepth;
                 float beforeDepth = texture2D(heightMap, prevTexCoords).r - currentLayerDepth + layerDepth;
                 
-                float weight = afterDepth / (afterDepth - beforeDepth);
-                vec2 finalTexCoords = prevTexCoords * weight + currentTexCoords * (1.0 - weight);
-                
-                return finalTexCoords;
-            }
-            
-            /**
-             * Normal mapping with proper tangent space transformation
-             */
-            vec3 getNormalFromMap(vec2 texCoords) {
-                vec3 normal = texture2D(normalMap, texCoords).rgb;
-                normal = normal * 2.0 - 1.0; // Convert from [0,1] to [-1,1]
-                
-                // Transform from tangent space to world space
-                return normalize(vTBN * normal);
-            }
-            
-            /**
-             * Simple Blinn-Phong lighting model
-             */
-            vec3 calculateLighting(vec3 normal, vec3 albedo, vec2 texCoords) {
-                // Material properties
-                float roughnessValue = texture2D(roughnessMap, texCoords).r * roughness;
-                
-                // Light calculations
-                vec3 lightDir = normalize(lightPosition - vWorldPosition);
-                vec3 viewDir = normalize(cameraPosition - vWorldPosition);
-                vec3 halfwayDir = normalize(lightDir + viewDir);
-                
-                // Attenuation
-                float distance = length(lightPosition - vWorldPosition);
-                float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
-                
-                // Ambient
-                vec3 ambient = 0.15 * albedo;
-                
-                // Diffuse
-                float diff = max(dot(normal, lightDir), 0.0);
-                vec3 diffuse = diff * lightColor * albedo;
-                
-                // Specular (Blinn-Phong)
-                float spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0 / (roughnessValue + 0.001));
-                vec3 specular = spec * lightColor * (1.0 - roughnessValue);
-                
-                // Combine with attenuation
-                return ambient + (diffuse + specular) * attenuation * lightIntensity;
-            }
-            
-            /**
-             * Fresnel effect calculation
-             */
-            float fresnel(vec3 normal, vec3 viewDir, float power) {
-                return pow(1.0 - max(dot(normal, viewDir), 0.0), power);
+                float weight = afterDepth / (afterDepth - beforeDepth + 0.001);
+                return mix(currentTexCoords, prevTexCoords, weight);
             }
             
             void main() {
-                // Apply parallax occlusion mapping
-                vec2 texCoords = parallaxOcclusionMapping(vUv, vViewDir);
+                vec3 viewDir = normalize(vViewDir);
                 
-                // Discard fragments outside texture bounds (prevents tile artifacts)
-                if (texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0) {
-                    discard;
+                // Choose parallax technique
+                vec2 texCoords;
+                if (steepParallax) {
+                    texCoords = steepParallaxMapping(vUv, viewDir);
+                } else {
+                    texCoords = parallaxMapping(vUv, viewDir);
                 }
                 
-                // Sample textures with displaced coordinates
+                // Clamp to prevent artifacts
+                texCoords = clamp(texCoords, 0.0, 1.0);
+                
+                // Sample textures
                 vec3 albedo = texture2D(albedoMap, texCoords).rgb * materialColor;
-                vec3 normal = getNormalFromMap(texCoords);
+                vec3 normalMapSample = texture2D(normalMap, texCoords).rgb * 2.0 - 1.0;
                 
-                // Calculate lighting
-                vec3 finalColor = calculateLighting(normal, albedo, texCoords);
+                // Transform normal to world space
+                vec3 normal = normalize(vTBN * normalMapSample);
                 
-                // Add rim lighting effect
-                vec3 viewDir = normalize(cameraPosition - vWorldPosition);
-                float rim = fresnel(normal, viewDir, 2.0);
-                finalColor += rim * 0.2 * lightColor;
+                // Lighting calculations
+                vec3 lightDir = normalize(lightPosition - vWorldPosition);
+                vec3 worldViewDir = normalize(cameraPosition - vWorldPosition);
                 
-                // Gamma correction
-                finalColor = pow(finalColor, vec3(1.0 / 2.2));
+                // Diffuse lighting
+                float NdotL = max(dot(normal, lightDir), 0.0);
+                vec3 diffuse = NdotL * lightColor * albedo;
+                
+                // Ambient
+                vec3 ambient = 0.2 * albedo;
+                
+                // Specular (Blinn-Phong)
+                vec3 halfwayDir = normalize(lightDir + worldViewDir);
+                float NdotH = max(dot(normal, halfwayDir), 0.0);
+                float spec = pow(NdotH, 32.0);
+                vec3 specular = spec * lightColor * 0.3;
+                
+                // Combine lighting
+                vec3 finalColor = ambient + diffuse + specular;
                 
                 gl_FragColor = vec4(finalColor, 1.0);
             }
@@ -293,68 +209,65 @@ export class ParallaxShader {
     }
     
     /**
-     * Creates procedural textures for the parallax mapping demo
-     * @returns {Object} Texture maps
+     * Creates improved procedural textures
      */
     createTextures() {
-        const textures = {};
-        
-        // Albedo texture (rock-like surface)
-        textures.albedo = this.createAlbedoTexture();
-        
-        // Height map for parallax displacement
-        textures.height = this.createHeightTexture();
-        
-        // Normal map for surface details
-        textures.normal = this.createNormalTexture();
-        
-        // Roughness map for material variation
-        textures.roughness = this.createRoughnessTexture();
-        
-        return textures;
+        return {
+            albedo: this.createImprovedAlbedoTexture(),
+            height: this.createImprovedHeightTexture(),
+            normal: this.createImprovedNormalTexture()
+        };
     }
     
     /**
-     * Creates a procedural albedo texture
+     * Creates improved albedo texture
      */
-    createAlbedoTexture() {
+    createImprovedAlbedoTexture() {
         const size = 512;
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = size;
         const ctx = canvas.getContext('2d');
         
-        // Base color
-        ctx.fillStyle = '#666';
+        // Base concrete color
+        ctx.fillStyle = '#808080';
         ctx.fillRect(0, 0, size, size);
         
-        // Add rock-like texture
-        for (let i = 0; i < 300; i++) {
-            const x = Math.random() * size;
-            const y = Math.random() * size;
-            const radius = Math.random() * 20 + 5;
-            
-            const grd = ctx.createRadialGradient(x, y, 0, x, y, radius);
-            grd.addColorStop(0, `rgb(${80 + Math.random() * 60}, ${70 + Math.random() * 50}, ${60 + Math.random() * 40})`);
-            grd.addColorStop(1, 'transparent');
-            
-            ctx.fillStyle = grd;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
+        // Add multi-scale noise
+        const imageData = ctx.getImageData(0, 0, size, size);
+        const data = imageData.data;
+        
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const i = (y * size + x) * 4;
+                
+                // Multi-octave noise
+                let noise = 0;
+                noise += Math.sin(x * 0.01) * Math.sin(y * 0.01) * 0.5;
+                noise += Math.sin(x * 0.02) * Math.sin(y * 0.02) * 0.25;
+                noise += Math.sin(x * 0.04) * Math.sin(y * 0.04) * 0.125;
+                noise += Math.sin(x * 0.08) * Math.sin(y * 0.08) * 0.0625;
+                
+                const variation = noise * 40;
+                
+                data[i] = Math.max(0, Math.min(255, data[i] + variation));
+                data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + variation));
+                data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + variation));
+            }
         }
+        
+        ctx.putImageData(imageData, 0, 0);
         
         const texture = new THREE.CanvasTexture(canvas);
         texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
         texture.generateMipmaps = true;
-        
         return texture;
     }
     
     /**
-     * Creates a procedural height map
+     * Creates improved height map
      */
-    createHeightTexture() {
-        const size = 512;
+    createImprovedHeightTexture() {
+        const size = 256;
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = size;
         const ctx = canvas.getContext('2d');
@@ -362,27 +275,25 @@ export class ParallaxShader {
         const imageData = ctx.createImageData(size, size);
         const data = imageData.data;
         
-        // Generate height map using noise
         for (let y = 0; y < size; y++) {
             for (let x = 0; x < size; x++) {
                 const i = (y * size + x) * 4;
                 
-                // Multi-octave noise
+                // Improved multi-octave height field
                 let height = 0;
-                let amplitude = 1;
-                let frequency = 0.01;
+                height += Math.sin(x * 0.005) * Math.sin(y * 0.005) * 0.5;
+                height += Math.sin(x * 0.01) * Math.sin(y * 0.01) * 0.25;
+                height += Math.sin(x * 0.02) * Math.sin(y * 0.02) * 0.125;
+                height += Math.sin(x * 0.04) * Math.sin(y * 0.04) * 0.0625;
                 
-                for (let octave = 0; octave < 4; octave++) {
-                    height += amplitude * (Math.sin(x * frequency) * Math.sin(y * frequency) + 1) * 0.5;
-                    amplitude *= 0.5;
-                    frequency *= 2;
-                }
+                // Add some randomness
+                height += (Math.random() - 0.5) * 0.1;
                 
-                // Add some random variation
-                height += (Math.random() - 0.5) * 0.2;
+                // Normalize to 0-1
+                height = (height + 1) * 0.5;
+                height = Math.max(0, Math.min(1, height));
                 
-                // Clamp and convert to grayscale
-                const value = Math.max(0, Math.min(255, height * 255));
+                const value = Math.floor(height * 255);
                 data[i] = data[i + 1] = data[i + 2] = value;
                 data[i + 3] = 255;
             }
@@ -393,85 +304,97 @@ export class ParallaxShader {
         const texture = new THREE.CanvasTexture(canvas);
         texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
         texture.generateMipmaps = true;
-        
         return texture;
     }
     
     /**
-     * Creates a basic normal map (blue-tinted)
+     * Creates improved normal map from height field
      */
-    createNormalTexture() {
+    createImprovedNormalTexture() {
         const size = 256;
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = size;
         const ctx = canvas.getContext('2d');
         
-        // Default normal (pointing up in tangent space)
-        ctx.fillStyle = '#8080ff';
-        ctx.fillRect(0, 0, size, size);
+        // First create a height field
+        const heights = new Array(size * size);
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                let height = 0;
+                height += Math.sin(x * 0.01) * Math.sin(y * 0.01) * 0.5;
+                height += Math.sin(x * 0.02) * Math.sin(y * 0.02) * 0.25;
+                height += Math.sin(x * 0.04) * Math.sin(y * 0.04) * 0.125;
+                
+                heights[y * size + x] = height;
+            }
+        }
         
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-        
-        return texture;
-    }
-    
-    /**
-     * Creates a procedural roughness map
-     */
-    createRoughnessTexture() {
-        const size = 256;
-        const canvas = document.createElement('canvas');
-        canvas.width = canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        
+        // Calculate normals from height field
         const imageData = ctx.createImageData(size, size);
         const data = imageData.data;
         
-        for (let i = 0; i < data.length; i += 4) {
-            const roughness = Math.random() * 128 + 64; // Random roughness
-            data[i] = data[i + 1] = data[i + 2] = roughness;
-            data[i + 3] = 255;
+        const strength = 2.0;
+        
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const i = (y * size + x) * 4;
+                
+                // Sample neighboring heights
+                const hL = heights[y * size + Math.max(0, x - 1)];
+                const hR = heights[y * size + Math.min(size - 1, x + 1)];
+                const hD = heights[Math.max(0, y - 1) * size + x];
+                const hU = heights[Math.min(size - 1, y + 1) * size + x];
+                
+                // Calculate normal
+                const dx = (hR - hL) * strength;
+                const dy = (hU - hD) * strength;
+                const dz = 1.0;
+                
+                const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                const nx = dx / length;
+                const ny = dy / length;
+                const nz = dz / length;
+                
+                // Convert to 0-255 range
+                data[i] = Math.floor((nx * 0.5 + 0.5) * 255);
+                data[i + 1] = Math.floor((ny * 0.5 + 0.5) * 255);
+                data[i + 2] = Math.floor((nz * 0.5 + 0.5) * 255);
+                data[i + 3] = 255;
+            }
         }
         
         ctx.putImageData(imageData, 0, 0);
         
         const texture = new THREE.CanvasTexture(canvas);
         texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-        
+        texture.generateMipmaps = true;
         return texture;
     }
     
     /**
-     * Updates shader uniforms
-     * @param {THREE.ShaderMaterial} material 
-     * @param {Object} params 
+     * Updates material parameters
      */
-    updateUniforms(material, params) {
-        if (!material.uniforms) return;
+    updateMaterial(material, params) {
+        if (!material.isParallaxShader) return;
         
-        Object.keys(params).forEach(key => {
-            if (material.uniforms[key]) {
-                material.uniforms[key].value = params[key];
-            }
-        });
-    }
-    
-    /**
-     * Disposes of shader resources
-     * @param {THREE.ShaderMaterial} material 
-     */
-    dispose(material) {
-        if (material.uniforms) {
-            Object.values(material.uniforms).forEach(uniform => {
-                if (uniform.value && uniform.value.dispose) {
-                    uniform.value.dispose();
-                }
-            });
+        const uniforms = material.uniforms;
+        
+        if (params.parallaxScale !== undefined) {
+            uniforms.parallaxScale.value = params.parallaxScale;
+        }
+        if (params.steepParallax !== undefined) {
+            uniforms.steepParallax.value = params.steepParallax;
+        }
+        if (params.wireframe !== undefined) {
+            material.wireframe = params.wireframe;
         }
         
-        if (material.dispose) {
-            material.dispose();
+        // Update time for animations
+        uniforms.time.value = performance.now() * 0.001;
+        
+        // Update camera position
+        if (params.cameraPosition) {
+            uniforms.cameraPosition.value.copy(params.cameraPosition);
         }
     }
 }
