@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Babylon.js Helix Parallax Mapping Demo</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    
+    <div id="info">
+        <h3>🌀 Helix Parallax Mapping</h3>
+        <div>Engine: <span id="current-engine">Babylon.js</span></div>
+        <div>FPS: <span id="fps">0</span></div>
+        <div>Frame Time: <span id="frame-time">0</span>ms</div>
+        <div>Vertices: <span id="vertices">0</span></div>
+        <div>Triangles: <span id="triangles">0</span></div>
+        <div>Memory: <span id="memory">0</span>MB</div>
+        <div>Performance: <span id="performance-grade" class="performance-grade">-</span></div>
+    </div>
+    
+    <div id="controls">
+        <h3>🎛️ Parallax Controls</h3>
+        
+        <div class="control-group">
+            <label>Renderer:</label>
+            <select id="renderer-select">
+                <option value="webgl2">WebGL2</option>
+                <option value="webgl1">WebGL1</option>
+                <option value="webgpu">WebGPU</option>
+            </select>
+        </div>
+        
+        <hr>
+        
+        <div class="control-group">
+            <label>Parallax Scale:</label>
+            <input type="range" id="parallaxScale" min="0" max="0.2" step="0.005" value="0.08">
+            <span id="parallaxScaleValue">0.08</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Min Layers:</label>
+            <input type="range" id="minLayers" min="8" max="64" step="1" value="16">
+            <span id="minLayersValue">16</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Max Layers:</label>
+            <input type="range" id="maxLayers" min="16" max="128" step="1" value="32">
+            <span id="maxLayersValue">32</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Occlusion:</label>
+            <input type="checkbox" id="parallaxOcclusion" checked>
+            <span>Self-Shadow</span>
+        </div>
+        
+        <hr>
+        
+        <div class="control-group">
+            <label>Helix Radius:</label>
+            <input type="range" id="helixRadius" min="1" max="5" step="0.1" value="2.5">
+            <span id="helixRadiusValue">2.5</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Helix Height:</label>
+            <input type="range" id="helixHeight" min="3" max="10" step="0.1" value="6">
+            <span id="helixHeightValue">6</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Turns:</label>
+            <input type="range" id="helixTurns" min="2" max="8" step="0.5" value="3">
+            <span id="helixTurnsValue">3</span>
+        </div>
+        
+        <div class="control-group">
+            <label>Wireframe:</label>
+            <input type="checkbox" id="wireframe">
+            <span>Debug Mode</span>
+        </div>
+        
+        <hr>
+        
+        <div class="test-controls">
+            <button id="startTest" class="test-btn">🧪 Start Performance Test (30s)</button>
+            <button id="exportData" class="test-btn">📊 Export Test Data</button>
+            <button id="clearData" class="test-btn">🗑️ Clear All Data</button>
+        </div>
+        
+        <div id="test-status"></div>
+        
+        <div style="margin-top: 15px; font-size: 11px; color: #888;">
+            <strong>Controls:</strong><br>
+            • Mouse: Orbit camera<br>
+            • Wheel: Zoom<br>
+            • Right-click: Pan<br>
+            • Space: Pause rotation
+        </div>
+    </div>
+
+    <!-- Babylon.js CDN -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+    <!-- Application modules -->
+    <script src="js/helixGeometry.js"></script>
+    <script src="js/performanceMonitor.js"></script>
+    <script src="js/uiControls.js"></script>
+    <script src="js/babylonHelixApp.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

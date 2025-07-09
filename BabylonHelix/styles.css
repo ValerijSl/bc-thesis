@@ -1,0 +1,204 @@
+/**
+ * Babylon.js Helix Parallax Mapping Demo - Styles
+ * Author: [Your Name]
+ * Date: [Current Date]
+ * Purpose: Styling for the parallax mapping demonstration
+ */
+
+/* Base styles */
+body {
+    margin: 0;
+    padding: 0;
+    background: #222;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+}
+
+#renderCanvas {
+    width: 100%;
+    height: 100vh;
+    display: block;
+    touch-action: none;
+}
+
+/* Info panel */
+#info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 15px;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    min-width: 200px;
+}
+
+#info h3 {
+    margin: 0 0 10px 0;
+    color: #4CAF50;
+    font-size: 18px;
+}
+
+#info div {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+/* Controls panel */
+#controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 15px;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    min-width: 250px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+#controls h3 {
+    margin: 0 0 15px 0;
+    color: #2196F3;
+    font-size: 18px;
+}
+
+/* Control groups */
+.control-group {
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.control-group label {
+    font-size: 14px;
+    margin-right: 10px;
+    min-width: 80px;
+}
+
+.control-group input[type="range"] {
+    flex: 1;
+    margin: 0 10px;
+}
+
+.control-group span {
+    min-width: 40px;
+    text-align: right;
+    font-size: 12px;
+    color: #FFC107;
+}
+
+/* Form elements */
+select, button {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+select:hover, button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Test controls */
+.test-btn {
+    width: 100%;
+    margin: 5px 0;
+    padding: 10px;
+    font-weight: bold;
+}
+
+.test-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Test status */
+#test-status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    display: none;
+}
+
+/* Separators */
+hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    margin: 15px 0;
+}
+
+/* Performance grade */
+.performance-grade {
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    #controls {
+        right: 5px;
+        left: 5px;
+        top: auto;
+        bottom: 10px;
+        max-height: 40vh;
+    }
+    
+    #info {
+        left: 5px;
+        top: 5px;
+    }
+    
+    .control-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .control-group input[type="range"] {
+        width: 100%;
+        margin: 5px 0;
+    }
+}
+
+/* Accessibility improvements */
+button:focus,
+select:focus,
+input:focus {
+    outline: 2px solid #2196F3;
+    outline-offset: 2px;
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Error states */
+.error {
+    color: #f44336;
+    background-color: rgba(244, 67, 54, 0.1);
+}
+
+/* Success states */
+.success {
+    color: #4CAF50;
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
+/* Info states */
+.info {
+    color: #2196F3;
+    background-color: rgba(33, 150, 243, 0.1);
+}
